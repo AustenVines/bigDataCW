@@ -1,0 +1,91 @@
+# === 1. SETUP ===
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import classification_report, confusion_matrix
+from PIL import Image
+
+# Mount Google Drive (skip if already mounted)
+from google.colab import drive
+drive.mount('/content/drive')
+
+# === 2. CONFIGURATION ===
+IMG_SIZE = (260, 260)
+BATCH_SIZE = 64
+
+MODEL_PATH = "/content/drive/MyDrive/best_model.keras"
+ORIG_DATASET_PATH = "/content/drive/MyDrive/BigData/Data/dataset"
+
+# === 3. LOAD MODEL ===
+model = load_model(MODEL_PATH)
+print("✅ Model loaded successfully!")
+
+# === 4. LOAD FULL DATASET ===
+full_datagen = ImageDataGenerator(rescale=1./255)
+
+full_generator = full_datagen.flow_from_directory(
+    ORIG_DATASET_PATH,
+    target_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    shuffle=False  # Important for matching y_true with predictions
+)
+
+# === 5. PREDICT ===
+print("📊 Evaluating on full dataset...")
+y_pred_probs = model.predict(full_generator)
+y_pred = np.argmax(y_pred_probs, axis=1)
+y_true = full_generator.classes
+class_names = list(full_generator.class_indices.keys())
+
+# === 6. CONFUSION MATRIX ===
+cm = confusion_matrix(y_true, y_pred)
+plt.figure(figsize=(10, 7))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+plt.title("Confusion Matrix (Full Dataset)")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+plt.show()
+
+# === 7. CLASSIFICATION REPORT ===
+print("🧾 Classification Report (Full Dataset):")
+print(classification_report(y_true, y_pred, target_names=class_names))
+
+# === 8. VISUALIZE SAMPLE PREDICTIONS ===
+print("🖼️ Sample Predictions:")
+
+# Get one image from each class
+class_images = {class_name: None for class_name in class_names}
+for class_name in class_names:
+    class_dir = os.path.join(full_generator.directory, class_name)
+    class_images[class_name] = next(os.walk(class_dir))[2][0]  # Pick the first image
+
+# Load and prepare sample images
+sample_images = []
+sample_labels = []
+for class_name, image_name in class_images.items():
+    image_path = os.path.join(full_generator.directory, class_name, image_name)
+    img = Image.open(image_path).resize(IMG_SIZE)
+    img_array = np.array(img) / 255.0
+    sample_images.append(img_array)
+    sample_labels.append(class_name)
+
+sample_images = np.array(sample_images)
+y_pred_probs = model.predict(sample_images)
+
+# Plot predictions
+plt.figure(figsize=(15, 10))
+for i, img_array in enumerate(sample_images):
+    plt.subplot(3, 4, i + 1)
+    plt.imshow(img_array)
+    true_label = sample_labels[i]
+    pred_label = class_names[np.argmax(y_pred_probs[i])]
+    color = 'green' if true_label == pred_label else 'red'
+    plt.title(f"True: {true_label}\nPred: {pred_label}", color=color)
+    plt.axis('off')
+
+plt.tight_layout()
+plt.show()
