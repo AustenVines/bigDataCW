@@ -1,0 +1,37 @@
+# === 1. SETUP ===
+import os
+from tensorflow.keras.models import load_model
+
+# Mount Google Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+# === 2. LOAD MODEL ===
+MODEL_PATH = "/content/drive/MyDrive/best_model.keras"
+model = load_model(MODEL_PATH)
+print("✅ Model loaded successfully!")
+
+# === 3. ANALYZE MODEL ===
+
+# Summary
+print("\n📋 Model Summary:")
+model.summary()
+
+# Model class type
+print("\n🔍 Model Class Type:")
+print(type(model))
+
+# Layer-wise breakdown
+print("\n🧱 Layer-wise Breakdown:")
+for i, layer in enumerate(model.layers):
+    print(f"{i:02d}: {layer.name} ({layer.__class__.__name__})")
+
+# Look for known pretrained backbones
+print("\n🔗 Check for Pretrained Backbone Layers:")
+pretrained_keywords = ['efficientnet', 'resnet', 'mobilenet', 'vgg', 'inception', 'densenet']
+used_backbones = [layer.name for layer in model.layers if any(k in layer.name.lower() for k in pretrained_keywords)]
+
+if used_backbones:
+    print(f"✅ Detected pretrained backbone(s): {used_backbones}")
+else:
+    print("❌ No obvious pretrained backbone detected. Might be a custom CNN.")
